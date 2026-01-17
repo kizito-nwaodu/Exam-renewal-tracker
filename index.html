@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MSFT Exam Tracker — Kizito</title>
+  <meta name="description" content="Microsoft certifications tracker: Fundamentals, Associate, Expert/Specialty, Active & Retired." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="3" width="8" height="8" fill="#F35325"/>
+        <rect x="13" y="3" width="8" height="8" fill="#81BC06"/>
+        <rect x="3" y="13" width="8" height="8" fill="#05A6F0"/>
+        <rect x="13" y="13" width="8" height="8" fill="#FFBA08"/>
+      </svg>
+      <h1>MSFT Exam Tracker <span class="muted">for Kizito</span></h1>
+    </div>
+    <div class="header-actions">
+      <button id="addBtn" class="btn primary">+ Add</button>
+      <button id="importBtn" class="btn">Import</button>
+      <button id="exportBtn" class="btn">Export</button>
+      <button id="resetBtn" class="btn danger">Reset</button>
+    </div>
+  </header>
+
+  <section class="filters">
+    <div class="filter-group">
+      <label>Search</label>
+      <input type="text" id="searchInput" placeholder="Search name, code, domain..." />
+    </div>
+
+    <div class="filter-group">
+      <label>Level</label>
+      <select id="levelFilter" multiple>
+        <option>Fundamentals</option>
+        <option>Associate</option>
+        <option>Expert</option>
+        <option>Specialty</option>
+        <option>Applied Skills</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label>Status</label>
+      <select id="statusFilter" multiple>
+        <option>Planned</option>
+        <option>Scheduled</option>
+        <option>Passed (Active)</option>
+        <option>Passed (Expired)</option>
+        <option>Retired</option>
+        <option>On Hold</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label>Sort</label>
+      <select id="sortSelect">
+        <option value="name">Name (A→Z)</option>
+        <option value="code">Exam Code</option>
+        <option value="datePassed">Date Passed (new→old)</option>
+        <option value="expiration">Expiration (soonest)</option>
+      </select>
+    </div>
+  </section>
+
+  <section class="summary" id="summary"></section>
+
+  <main>
+    <table class="grid" id="dataGrid">
+      <thead>
+        <tr>
+          <th>Level</th>
+          <th>Name</th>
+          <th>Code(s)</th>
+          <th>Status</th>
+          <th>Date Passed</th>
+          <th>Expiration</th>
+          <th>Renewal</th>
+          <th>Domain</th>
+          <th>Source</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="gridBody"></tbody>
+    </table>
+  </main>
+
+  <dialog id="itemDialog">
+    <form method="dialog" id="itemForm">
+      <h3 id="dlgTitle">Add Certification/Exam</h3>
+      <div class="form-grid">
+        <label>Name<input required id="name" /></label>
+        <label>Exam Code(s)<input id="codes" placeholder="e.g., SC-200" /></label>
+        <label>Level
+          <select id="level" required>
+            <option value="Fundamentals">Fundamentals</option>
+            <option value="Associate">Associate</option>
+            <option value="Expert">Expert</option>
+            <option value="Specialty">Specialty</option>
+            <option value="Applied Skills">Applied Skills</option>
+          </select>
+        </label>
+        <label>Status
+          <select id="status" required>
+            <option>Planned</option>
+            <option>Scheduled</option>
+            <option>Passed (Active)</option>
+            <option>Passed (Expired)</option>
+            <option>Retired</option>
+            <option>On Hold</option>
+          </select>
+        </label>
+        <label>Date Passed<input id="datePassed" type="date" /></label>
+        <label>Expiration<input id="expiration" type="date" /></label>
+        <label>Renewal Due (months)<input id="renewal" type="number" min="0" step="1" value="12" /></label>
+        <label>Role/Domain<input id="domain" placeholder="Security, Endpoint, Identity..."/></label>
+        <label>Source Link<input id="source" placeholder="Microsoft Learn URL"/></label>
+        <label class="col-span">Notes<textarea id="notes" rows="3" placeholder="Any remarks..."/></label>
+      </div>
+      <menu class="dialog-actions">
+        <button value="cancel" class="btn">Cancel</button>
+        <button id="saveBtn" value="default" class="btn primary">Save</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="importDialog">
+    <h3>Import data</h3>
+    <p>You can import from a JSON file previously exported from this app, or paste JSON below. CSV import also supported if columns match the README template.</p>
+    <div class="import-grid">
+      <div>
+        <input type="file" id="fileInput" accept=".json,.csv" />
+      </div>
+      <textarea id="pasteArea" rows="8" placeholder="Paste JSON here"></textarea>
+    </div>
+    <menu class="dialog-actions">
+      <button class="btn" id="importCancel">Cancel</button>
+      <button class="btn primary" id="importConfirm">Import</button>
+    </menu>
+  </dialog>
+
+  <footer class="app-footer">
+    <span>Local-only webapp. Your data is saved in this browser (LocalStorage). Export regularly.</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
