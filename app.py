@@ -17,21 +17,28 @@ def fetch_data():
             return response.json()
         return None
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"Error fetching data: {e}")
         return None
 
 data = fetch_data()
 
 if data:
-    # Microsoft often nests these under 'certificationData' -> 'activeCertifications'
-    cert_data = data.get("certificationData", {})
-    certs = cert_data.get("activeCertifications", [])
-    
     cert_list = []
     
-    for c in certs:
-        # Try to find the title in different possible keys
-        name = c.get("certificationName") or c.get("title") or "Unnamed Achievement"
+    # 1. PULL ROLE-BASED & FUNDAMENTALS
+    active_certs = data.get("certificationData", {}).get("activeCertifications", [])
+    # 2. PULL APPLIED SKILLS
+    applied_skills = data.get("appliedSkillsData", {}).get("appliedSkills", [])
+    
+    # Combine lists to process them all
+    all_achievements = active_certs + applied_skills
+
+    for c in all_achievements:
+        # Microsoft uses different keys for different achievement types
+        name = (c.get("certificationName") or 
+                c.get("title") or 
+                c.get("appliedSkillName") or 
+                "Unknown Achievement")
         
         # Date Handling
         raw_issue = c.get("issueDate") or c.get("achievementDate")
@@ -56,6 +63,7 @@ if data:
                 renewal_open = "N/A"
                 status = "❓ Check Learn"
         else:
+            # Fundamentals & Applied Skills usually don't expire
             expiry_date = "Lifetime"
             renewal_open = "N/A"
             status = "🟢 Active"
@@ -71,11 +79,10 @@ if data:
     if cert_list:
         df = pd.DataFrame(cert_list)
         
-        # Sort so that those expiring soonest are at the top
-        # We handle 'Lifetime' strings so they don't break sorting
-        df['SortDate'] = df['Expiry Date'].apply(lambda x: x if isinstance(x, datetime) or hasattr(x, 'year') else datetime(2099, 1, 1).date())
-        df = df.sort_values(by="SortDate").drop(columns=['SortDate'])
+        # Remove duplicates (sometimes MS lists things in two places)
+        df = df.drop_duplicates(subset=['Certification'])
 
+        # Color Formatting
         def color_status(val):
             if "RENEW" in val: return 'background-color: #fff3cd; color: #856404; font-weight: bold'
             if "Expired" in val: return 'background-color: #f8d7da; color: #721c24'
@@ -88,8 +95,8 @@ if data:
             hide_index=True
         )
         
-        st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        st.success(f"Successfully tracked {len(df)} achievements!")
     else:
-        st.warning("No certifications found. Please check if your transcript is shared correctly.")
+        st.warning("No achievements found. Is your transcript definitely public?")
 else:
-    st.error("Access Denied. Please ensure your Transcript is 'Public' in Microsoft Learn settings.")
+    st.error("Access Denied. Ensure your Transcript Share Link is valid.")
