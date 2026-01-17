@@ -13,79 +13,77 @@ st.title("🎓 Microsoft Certification Tracker")
 def fetch_data():
     try:
         response = requests.get(URL)
-        if response.status_code == 200:
-            return response.json()
-        return None
-    except Exception as e:
-        st.error(f"Network Error: {e}")
+        return response.json() if response.status_code == 200 else None
+    except:
         return None
 
 def get_best_name(obj):
-    """Deep search for the title of the achievement."""
-    # List of possible keys Microsoft uses for titles
-    keys = ["certificationName", "title", "examName", "appliedSkillName", "name", "courseName"]
+    keys = ["certificationName", "title", "examName", "appliedSkillName", "name"]
     for key in keys:
-        if obj.get(key):
-            return obj.get(key)
-    return "Unnamed Achievement"
+        if obj.get(key): return obj.get(key)
+    return "Unknown Achievement"
 
 data = fetch_data()
 
 if data:
     cert_list = []
-    
-    # Extracting all possible sections from the JSON
-    cert_data = data.get("certificationData", {})
-    active_certs = cert_data.get("activeCertifications", [])
+    # Pulling from all possible data buckets
+    active_certs = data.get("certificationData", {}).get("activeCertifications", [])
     applied_skills = data.get("appliedSkillsData", {}).get("appliedSkills", [])
-    exams = data.get("examData", {}).get("passedExams", []) # Adding passed exams
+    exams = data.get("examData", {}).get("passedExams", [])
     
-    # Process everything
     all_items = active_certs + applied_skills + exams
 
     for item in all_items:
         name = get_best_name(item)
         
-        # Handle Dates
+        # 1. FIND THE ISSUE DATE
+        # MS uses achievementDate for certs and passDate for exams
         raw_issue = item.get("issueDate") or item.get("achievementDate") or item.get("passDate")
         issue_date = raw_issue[:10] if raw_issue else "N/A"
         
-        expiry_date_str = item.get("expirationDate")
-        
-        if expiry_date_str:
+        # 2. FIND THE EXPIRY DATE
+        # Look in the main object OR inside a 'certificationStatus' sub-object
+        raw_expiry = item.get("expirationDate")
+        if not raw_expiry and item.get("certificationStatus"):
+            raw_expiry = item.get("certificationStatus", {}).get("expirationDate")
+            
+        # 3. CALCULATE STATUS AND RENEWAL
+        if raw_expiry:
             try:
-                expiry_date = datetime.strptime(expiry_date_str[:10], "%Y-%m-%d").date()
-                renewal_open = expiry_date - timedelta(days=180)
-                days_left = (expiry_date - datetime.now().date()).days
+                expiry_dt = datetime.strptime(raw_expiry[:10], "%Y-%m-%d").date()
+                renewal_open = expiry_dt - timedelta(days=180)
+                today = datetime.now().date()
                 
-                if days_left < 0:
+                if today >= expiry_dt:
                     status = "🔴 Expired"
-                elif datetime.now().date() >= renewal_open:
+                elif today >= renewal_open:
                     status = "🟡 RENEW NOW"
                 else:
                     status = "🟢 Active"
+                
+                display_expiry = expiry_dt
+                display_renewal = renewal_open
             except:
-                expiry_date = "N/A"
-                renewal_open = "N/A"
+                display_expiry = "N/A"
+                display_renewal = "N/A"
                 status = "❓ Unknown"
         else:
-            # Fundamentals, Exams, and Applied Skills don't expire
-            expiry_date = "Lifetime"
-            renewal_open = "N/A"
+            # If no expiry is found, it's a Lifetime cert (like Fundamentals)
+            display_expiry = "Lifetime"
+            display_renewal = "N/A"
             status = "🟢 Active"
 
         cert_list.append({
             "Certification": name,
             "Issue Date": issue_date,
-            "Expiry Date": expiry_date,
-            "Renewal Opens": renewal_open,
+            "Expiry Date": display_expiry,
+            "Renewal Opens": display_renewal,
             "Status": status
         })
 
     if cert_list:
-        df = pd.DataFrame(cert_list)
-        # Drop duplicates based on Name
-        df = df.drop_duplicates(subset=['Certification'])
+        df = pd.DataFrame(cert_list).drop_duplicates(subset=['Certification'])
         
         # Styling
         def color_status(val):
@@ -100,6 +98,6 @@ if data:
             hide_index=True
         )
     else:
-        st.warning("Data found, but no certifications were detected. Check your Transcript settings.")
+        st.warning("No data found.")
 else:
-    st.error("Could not reach Microsoft Learn API. Verify your Transcript ID.")
+    st.error("Could not fetch data.")
