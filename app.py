@@ -17,34 +17,40 @@ def fetch_data():
             return response.json()
         return None
     except Exception as e:
-        st.error(f"Error fetching data: {e}")
+        st.error(f"Network Error: {e}")
         return None
+
+def get_best_name(obj):
+    """Deep search for the title of the achievement."""
+    # List of possible keys Microsoft uses for titles
+    keys = ["certificationName", "title", "examName", "appliedSkillName", "name", "courseName"]
+    for key in keys:
+        if obj.get(key):
+            return obj.get(key)
+    return "Unnamed Achievement"
 
 data = fetch_data()
 
 if data:
     cert_list = []
     
-    # 1. PULL ROLE-BASED & FUNDAMENTALS
-    active_certs = data.get("certificationData", {}).get("activeCertifications", [])
-    # 2. PULL APPLIED SKILLS
+    # Extracting all possible sections from the JSON
+    cert_data = data.get("certificationData", {})
+    active_certs = cert_data.get("activeCertifications", [])
     applied_skills = data.get("appliedSkillsData", {}).get("appliedSkills", [])
+    exams = data.get("examData", {}).get("passedExams", []) # Adding passed exams
     
-    # Combine lists to process them all
-    all_achievements = active_certs + applied_skills
+    # Process everything
+    all_items = active_certs + applied_skills + exams
 
-    for c in all_achievements:
-        # Microsoft uses different keys for different achievement types
-        name = (c.get("certificationName") or 
-                c.get("title") or 
-                c.get("appliedSkillName") or 
-                "Unknown Achievement")
+    for item in all_items:
+        name = get_best_name(item)
         
-        # Date Handling
-        raw_issue = c.get("issueDate") or c.get("achievementDate")
+        # Handle Dates
+        raw_issue = item.get("issueDate") or item.get("achievementDate") or item.get("passDate")
         issue_date = raw_issue[:10] if raw_issue else "N/A"
         
-        expiry_date_str = c.get("expirationDate")
+        expiry_date_str = item.get("expirationDate")
         
         if expiry_date_str:
             try:
@@ -61,9 +67,9 @@ if data:
             except:
                 expiry_date = "N/A"
                 renewal_open = "N/A"
-                status = "❓ Check Learn"
+                status = "❓ Unknown"
         else:
-            # Fundamentals & Applied Skills usually don't expire
+            # Fundamentals, Exams, and Applied Skills don't expire
             expiry_date = "Lifetime"
             renewal_open = "N/A"
             status = "🟢 Active"
@@ -78,11 +84,10 @@ if data:
 
     if cert_list:
         df = pd.DataFrame(cert_list)
-        
-        # Remove duplicates (sometimes MS lists things in two places)
+        # Drop duplicates based on Name
         df = df.drop_duplicates(subset=['Certification'])
-
-        # Color Formatting
+        
+        # Styling
         def color_status(val):
             if "RENEW" in val: return 'background-color: #fff3cd; color: #856404; font-weight: bold'
             if "Expired" in val: return 'background-color: #f8d7da; color: #721c24'
@@ -94,9 +99,7 @@ if data:
             use_container_width=True,
             hide_index=True
         )
-        
-        st.success(f"Successfully tracked {len(df)} achievements!")
     else:
-        st.warning("No achievements found. Is your transcript definitely public?")
+        st.warning("Data found, but no certifications were detected. Check your Transcript settings.")
 else:
-    st.error("Access Denied. Ensure your Transcript Share Link is valid.")
+    st.error("Could not reach Microsoft Learn API. Verify your Transcript ID.")
