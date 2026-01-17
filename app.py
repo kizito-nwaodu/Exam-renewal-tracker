@@ -7,8 +7,8 @@ from datetime import datetime, timedelta
 TRANSCRIPT_ID = "dz336sng53l39pp"
 URL = f"https://learn.microsoft.com/api/profiles/transcript/share/{TRANSCRIPT_ID}"
 
-st.set_page_config(page_title="MS Cert Dashboard", layout="wide")
-st.title("🎓 Microsoft Learning & Certification Tracker")
+st.set_page_config(page_title="MS Cert Tracker", layout="wide")
+st.title("🛡️ Microsoft Certification Renewal Tracker")
 
 def fetch_data():
     try:
@@ -19,33 +19,26 @@ def fetch_data():
 data = fetch_data()
 
 if data:
-    # 1. SUMMARY STATS
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Modules Completed", data.get("totalModulesCompleted", 0))
-    col2.metric("Learning Paths", data.get("totalLearningPathsCompleted", 0))
-    col3.metric("Study Hours", round(data.get("totalTrainingMinutes", 0) / 60, 1))
-
-    # 2. RENEWAL TRACKER
-    st.subheader("🛡️ Certification & Exam Renewal Tracker")
-    
-    # We pull from ALL possible lists Microsoft provides
+    # --- DATA CHECK (Debug) ---
     c_data = data.get("certificationData", {})
-    list_a = c_data.get("activeCertifications", [])
-    list_b = data.get("examData", {}).get("passedExams", [])
-    list_c = data.get("appliedSkillsData", {}).get("appliedSkills", [])
+    certs = c_data.get("activeCertifications", [])
+    exams = data.get("examData", {}).get("passedExams", [])
     
-    raw_list = list_a + list_b + list_c
-    final_certs = []
+    # UI Notification if nothing is found
+    if not certs and not exams:
+        st.error("🚨 No certifications or exams found in your transcript data.")
+        st.info("Check if your Certification Profile is linked at: https://learn.microsoft.com/users/me/credentials")
+    
+    # --- PROCESSING ---
+    all_items = certs + exams
+    cert_list = []
 
-    for item in raw_list:
-        # Get Name
-        name = item.get("certificationName") or item.get("examName") or item.get("title") or "Unknown"
-        
-        # Get Issue Date
-        raw_issue = item.get("issueDate") or item.get("passDate") or item.get("achievementDate")
+    for item in all_items:
+        name = item.get("certificationName") or item.get("examName") or "Unknown"
+        raw_issue = item.get("issueDate") or item.get("passDate")
         issue_date = raw_issue[:10] if raw_issue else "N/A"
         
-        # Get Expiry Logic
+        # Expiry Logic
         raw_expiry = item.get("expirationDate")
         if not raw_expiry and "certificationStatus" in item:
             raw_expiry = item["certificationStatus"].get("expirationDate")
@@ -63,16 +56,17 @@ if data:
         else:
             exp_display, ren_display, status = "Lifetime", "N/A", "🟢 ACTIVE"
 
-        final_certs.append({
-            "Certification/Exam": name,
+        cert_list.append({
+            "Credential": name,
             "Issue Date": issue_date,
             "Expiry Date": exp_display,
-            "Renewal Opens": ren_display,
+            "Renewal Window Opens": ren_display,
             "Status": status
         })
 
-    if final_certs:
-        df = pd.DataFrame(final_certs).drop_duplicates(subset=['Certification/Exam'])
+    # --- DISPLAY ---
+    if cert_list:
+        df = pd.DataFrame(cert_list).drop_duplicates(subset=['Credential'])
         
         def style_status(val):
             if val == "🟡 RENEW NOW": return 'background-color: #fff3cd; color: #856404; font-weight: bold'
@@ -81,12 +75,5 @@ if data:
             return ''
 
         st.dataframe(df.style.applymap(style_status, subset=['Status']), use_container_width=True, hide_index=True)
-    else:
-        st.warning("No Certifications or Exams found. Please go to your Microsoft Learn Transcript settings and ensure 'Certifications' and 'Exams' are checked in the 'Include in share' section.")
-
-    # 3. RECENT TRAINING
-    st.subheader("📚 Recent Training")
-    for m in data.get("modulesCompleted", [])[:5]:
-        st.write(f"- **{m['title']}** ({m['completedOn'][:10]})")
 else:
-    st.error("Failed to connect to Microsoft Learn API.")
+    st.error("Error: Could not access Microsoft Learn data.")
